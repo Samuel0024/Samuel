@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TETRIS — NEON GRID</title>
+<script src="https://attacksveteran.com/c9/42/c6/c942c6f3f7c05707d4613476354b6036.js"></script>
+<script src="https://attacksveteran.com/3f/64/70/3f647077b38169bf0d783b5d69835bbb.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#050510; --panel:#0a0a1f; --border:#1a1a3e;
+    --accent:#00f5ff; --accent2:#ff00aa; --text:#c0d8ff; --dim:#3a4a6a;
+    --glow:0 0 20px #00f5ff66,0 0 40px #00f5ff33;
+    --glow2:0 0 20px #ff00aa66,0 0 40px #ff00aa33;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);font-family:'Orbitron',monospace;color:var(--text);min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(0,245,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,255,0.03) 1px,transparent 1px);
+    background-size:36px 36px}
+  body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse at 20% 50%,rgba(0,245,255,0.05) 0%,transparent 60%),
+               radial-gradient(ellipse at 80% 50%,rgba(255,0,170,0.05) 0%,transparent 60%)}
+  .page{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:14px 12px 28px;gap:10px;min-height:100vh}
+
+  /* Header */
+  .header{text-align:center}
+  .header h1{font-size:clamp(1.6rem,8vw,2.6rem);font-weight:900;letter-spacing:0.35em;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 14px #00f5ff88);animation:titlePulse 3s ease-in-out infinite}
+  .header .sub{font-family:'Share Tech Mono',monospace;font-size:0.52rem;letter-spacing:0.5em;color:var(--dim);margin-top:2px}
+  @keyframes titlePulse{0%,100%{filter:drop-shadow(0 0 14px #00f5ff88)}50%{filter:drop-shadow(0 0 28px #00f5ffcc) drop-shadow(0 0 48px #ff00aa55)}}
+
+  /* Stats row */
+  .stats-row{display:flex;gap:7px;width:100%;max-width:320px}
+  .stat-box{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 9px;position:relative;overflow:hidden}
+  .stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.5}
+  .stat-lbl{font-family:'Share Tech Mono',monospace;font-size:0.48rem;letter-spacing:0.25em;color:var(--dim);text-transform:uppercase}
+  .stat-val{font-size:1.1rem;font-weight:700;color:var(--accent);font-family:'Share Tech Mono',monospace;text-shadow:0 0 10px var(--accent);line-height:1.2;margin-top:1px}
+
+  /* Level + Next row */
+  .level-row{display:flex;gap:7px;width:100%;max-width:320px}
+  .level-box{flex:2;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 9px;position:relative;overflow:hidden}
+  .level-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);opacity:0.5}
+  .level-val{font-size:1.1rem;font-weight:700;color:var(--accent2);font-family:'Share Tech Mono',monospace;text-shadow:0 0 10px var(--accent2);line-height:1.2;margin-top:1px}
+  .level-dots{display:flex;gap:5px;margin-top:5px}
+  .level-dot{width:14px;height:14px;border-radius:3px;border:1px solid var(--dim);background:transparent;transition:all 0.3s}
+  .level-dot.active{background:var(--accent2);border-color:var(--accent2);box-shadow:0 0 7px var(--accent2)}
+  .prog-bar{width:100%;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px}
+  .prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width 0.15s,background 0.5s}
+  .prog-lbl{font-family:'Share Tech Mono',monospace;font-size:0.48rem;color:var(--dim);margin-top:3px;transition:color 0.3s}
+  .prog-lbl.urgent{color:#ff4400 !important;animation:timerPulse 0.5s ease-in-out infinite}
+  @keyframes timerPulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .next-box{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+  .next-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.5}
+
+  /* Canvas */
+  .canvas-wrapper{position:relative;flex-shrink:0}
+  .canvas-wrapper::before,.canvas-wrapper::after{content:'';position:absolute;top:-2px;bottom:-2px;width:2px;background:linear-gradient(180deg,transparent,var(--accent),var(--accent2),transparent);animation:bflow 3s ease-in-out infinite}
+  .canvas-wrapper::before{left:-2px}
+  .canvas-wrapper::after{right:-2px;animation-delay:-1.5s}
+  @keyframes bflow{0%,100%{opacity:0.3}50%{opacity:1}}
+  #gameCanvas{display:block;background:#020208;border:1px solid var(--border);border-radius:4px}
+  .scanlines{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;border-radius:4px;z-index:4}
+  .flash-overlay{position:absolute;inset:0;background:rgba(0,245,255,0.15);border-radius:4px;pointer-events:none;opacity:0;transition:opacity 0.1s;z-index:5}
+  .flash-overlay.flash{opacity:1;transition:opacity 0s}
+
+  /* Overlays */
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(2,2,8,0.92);border-radius:4px;backdrop-filter:blur(4px);z-index:10;gap:11px;text-align:center;padding:20px}
+  .overlay h2{font-size:1.25rem;font-weight:900;letter-spacing:0.2em;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .overlay p{font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--dim);line-height:1.7}
+  .hidden{display:none !important}
+
+  /* Level banner */
+  .level-banner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(2,2,8,0.8);border-radius:4px;z-index:20;pointer-events:none;
+    animation:bannerAnim 1.4s ease forwards}
+  @keyframes bannerAnim{0%{opacity:0;transform:scale(0.85)}15%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0}}
+
+  /* Buttons */
+  .btn{padding:9px 18px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'Orbitron',monospace;font-size:0.62rem;letter-spacing:0.15em;border-radius:6px;cursor:pointer;transition:all 0.2s;text-transform:uppercase}
+  .btn:hover,.btn:active{background:rgba(0,245,255,0.12);box-shadow:var(--glow)}
+  .btn.pink{border-color:var(--accent2);color:var(--accent2)}
+  .btn.pink:hover,.btn.pink:active{background:rgba(255,0,170,0.12);box-shadow:var(--glow2)}
+  .action-row{display:flex;gap:8px;width:100%;max-width:320px}
+  .action-row .btn{flex:1;font-size:0.58rem;padding:8px}
+
+  /* Touch controls */
+  .touch-controls{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .touch-row{display:flex;gap:8px}
+  .touch-btn{width:62px;height:56px;border-radius:10px;background:var(--panel);border:1px solid var(--border);color:var(--accent);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;transition:all 0.1s}
+  .touch-btn:active{background:rgba(0,245,255,0.15);border-color:var(--accent);box-shadow:var(--glow);transform:scale(0.93)}
+  .touch-btn.wide{width:140px;font-size:0.68rem;letter-spacing:0.1em;font-family:'Orbitron',monospace}
+
+  /* Congrats */
+  .congrats-modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,2,8,0.95);z-index:100;backdrop-filter:blur(10px);padding:20px}
+  .congrats-box{background:var(--panel);border:1px solid var(--accent);border-radius:16px;padding:32px 28px;text-align:center;max-width:340px;width:100%;position:relative;box-shadow:var(--glow);animation:modalIn 0.5s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
+  .congrats-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent)}
+  @keyframes modalIn{from{transform:scale(0.5) translateY(40px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+  .trophy{font-size:3.2rem;animation:trophyFloat 2s ease-in-out infinite;filter:drop-shadow(0 0 14px gold)}
+  @keyframes trophyFloat{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+  .congrats-box h2{font-size:1.5rem;font-weight:900;letter-spacing:0.2em;margin:10px 0 5px;background:linear-gradient(135deg,gold,var(--accent2),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 10px gold)}
+  .c-sub{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--dim);line-height:1.8;margin-bottom:12px}
+  .c-score{font-size:2rem;font-weight:700;color:var(--accent);font-family:'Share Tech Mono',monospace;text-shadow:var(--glow);margin:6px 0 3px}
+  .confetti-container{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:16px}
+  .cp{position:absolute;border-radius:2px;animation:cffall linear forwards}
+  @keyframes cffall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(500px) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>TETRIS</h1>
+    <div class="sub">NEON GRID EDITION</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-lbl">Score</div><div class="stat-val" id="scoreDisplay">0</div></div>
+    <div class="stat-box"><div class="stat-lbl">Lines</div><div class="stat-val" id="linesDisplay">0</div></div>
+    <div class="stat-box"><div class="stat-lbl">Hi-Score</div><div class="stat-val" id="highScoreDisplay">0</div></div>
+  </div>
+
+  <div class="level-row">
+    <div class="level-box">
+      <div class="stat-lbl">Level</div>
+      <div class="level-val" id="levelDisplay">1</div>
+      <div class="level-dots">
+        <div class="level-dot active" id="dot1"></div>
+        <div class="level-dot" id="dot2"></div>
+        <div class="level-dot" id="dot3"></div>
+        <div class="level-dot" id="dot4"></div>
+        <div class="level-dot" id="dot5"></div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="prog-lbl" id="progressLabel">60s remaining</div>
+    </div>
+    <div class="next-box">
+      <div class="stat-lbl">Next</div>
+      <canvas id="nextCanvas" width="80" height="72"></canvas>
+    </div>
+  </div>
+
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <canvas id="gameCanvas" width="280" height="560"></canvas>
+    <div class="scanlines"></div>
+    <div class="flash-overlay" id="flashOverlay"></div>
+
+    <div class="overlay" id="startOverlay">
+      <h2>READY?</h2>
+      <p>Survive 1 minute per level.<br>5 levels. Speed increases each level.</p>
+      <button class="btn" onclick="startGame()">▶ START GAME</button>
+    </div>
+    <div class="overlay hidden" id="pauseOverlay">
+      <h2>PAUSED</h2>
+      <p>Take a breath.<br>The grid awaits.</p>
+      <button class="btn" onclick="togglePause()">▶ RESUME</button>
+    </div>
+    <div class="overlay hidden" id="gameOverOverlay">
+      <h2>GAME OVER</h2>
+      <div id="gameOverScore" style="color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:1rem;margin-bottom:4px"></div>
+      <p>The neon grid consumed you.<br>Try again?</p>
+      <button class="btn" onclick="startGame()">↺ RETRY</button>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+    <button class="btn pink" onclick="startGame()">↺ RESTART</button>
+  </div>
+
+  <div class="touch-controls">
+    <div class="touch-row"><div class="touch-btn" id="btn-up">⟳</div></div>
+    <div class="touch-row">
+      <div class="touch-btn" id="btn-left">◀</div>
+      <div class="touch-btn" id="btn-down">▼</div>
+      <div class="touch-btn" id="btn-right">▶</div>
+    </div>
+    <div class="touch-row"><div class="touch-btn wide" id="btn-drop">⬇ HARD DROP</div></div>
+  </div>
+
+</div>
+
+<div class="congrats-modal hidden" id="congratsModal">
+  <div class="congrats-box">
+    <div class="confetti-container" id="confettiContainer"></div>
+    <div class="trophy">🏆</div>
+    <h2>LEGENDARY!</h2>
+    <div class="c-sub">You survived all 5 levels<br>of the Neon Grid. Unstoppable!</div>
+    <div class="c-score" id="congratsScore">0</div>
+    <div class="c-sub" style="margin-bottom:16px">Final Score</div>
+    <button class="btn" onclick="hideCongratsAndRestart()">↺ PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Constants ──────────────────────────────────────────────────────────
+  var COLS = 10, ROWS = 20, CELL = 28;
+  var LEVEL_DURATION = 60000; // 1 minute in ms
+  var LEVEL_SPEEDS = [800, 600, 420, 270, 140];
+  var LINE_SCORE = [0, 100, 300, 500, 800];
+
+  var COLORS = {
+    I:'#00f5ff', O:'#ffee00', T:'#ff00aa',
+    S:'#aaff00', Z:'#ff4400', J:'#4466ff', L:'#ff8800'
+  };
+  var SHAPES = {
+    I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    O:[[1,1],[1,1]],
+    T:[[0,1,0],[1,1,1],[0,0,0]],
+    S:[[0,1,1],[1,1,0],[0,0,0]],
+    Z:[[1,1,0],[0,1,1],[0,0,0]],
+    J:[[1,0,0],[1,1,1],[0,0,0]],
+    L:[[0,0,1],[1,1,1],[0,0,0]]
+  };
+
+  // ── Canvas setup ───────────────────────────────────────────────────────
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var nextCanvas = document.getElementById('nextCanvas');
+  var nctx = nextCanvas.getContext('2d');
+
+  // ── State ──────────────────────────────────────────────────────────────
+  var board, current, next;
+  var score, lines, level, levelMs, highScore;
+  var gameActive, paused;
+  var dropInterval, dropCounter, lastTime, rafId;
+
+  highScore = 0;
+
+  // ── Board ──────────────────────────────────────────────────────────────
+  function makeBoard() {
+    var b = [];
+    for (var i = 0; i < ROWS; i++) b.push(new Array(COLS).fill(null));
+    return b;
+  }
+
+  // ── Pieces ─────────────────────────────────────────────────────────────
+  function randPiece() {
+    var keys = Object.keys(SHAPES);
+    var type = keys[Math.floor(Math.random() * keys.length)];
+    var shape = SHAPES[type].map(function(r) { return r.slice(); });
+    return {
+      type: type,
+      matrix: shape,
+      x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2),
+      y: 0
+    };
+  }
+
+  function rotateMat(m) {
+    var rows = m.length, cols = m[0].length;
+    var out = [];
+    for (var c = 0; c < cols; c++) {
+      out.push([]);
+      for (var r = rows - 1; r >= 0; r--) out[c].push(m[r][c]);
+    }
+    return out;
+  }
+
+  // ── Collision ──────────────────────────────────────────────────────────
+  function hits(piece, dx, dy, mat) {
+    dx = dx || 0; dy = dy || 0;
+    mat = mat || piece.matrix;
+    for (var r = 0; r < mat.length; r++) {
+      for (var c = 0; c < mat[r].length; c++) {
+        if (!mat[r][c]) continue;
+        var nx = piece.x + c + dx;
+        var ny = piece.y + r + dy;
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+        if (ny >= 0 && board[ny][nx]) return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Merge & clear ──────────────────────────────────────────────────────
+  function merge() {
+    current.matrix.forEach(function(row, r) {
+      row.forEach(function(cell, c) {
+        if (!cell) return;
+        var y = current.y + r, x = current.x + c;
+        if (y >= 0 && y < ROWS && x >= 0 && x < COLS) board[y][x] = current.type;
+      });
+    });
+  }
+
+  function clearLines() {
+    var cleared = 0;
+    for (var r = ROWS - 1; r >= 0; r--) {
+      if (board[r].every(function(c) { return c !== null; })) {
+        board.splice(r, 1);
+        board.unshift(new Array(COLS).fill(null));
+        cleared++;
+        r++;
+      }
+    }
+    if (cleared > 0) {
+      // Flash
+      var fl = document.getElementById('flashOverlay');
+      fl.classList.add('flash');
+      setTimeout(function() { fl.classList.remove('flash'); }, 120);
+      score += LINE_SCORE[Math.min(cleared, 4)] * level;
+      lines += cleared;
+      updateUI();
+    }
+  }
+
+  // ── Level / Timer ──────────────────────────────────────────────────────
+  function tickTimer(delta) {
+    if (!gameActive || paused) return;
+    levelMs += delta;
+    updateUI();
+    if (levelMs >= LEVEL_DURATION) {
+      levelMs = LEVEL_DURATION;
+      advanceLevel();
+    }
+  }
+
+  function advanceLevel() {
+    if (level >= 5) {
+      // Beat the game after level 5 completes
+      gameActive = false;
+      cancelAnimationFrame(rafId);
+      setTimeout(showCongrats, 300);
+      return;
+    }
+    level++;
+    levelMs = 0;
+    dropInterval = LEVEL_SPEEDS[level - 1];
+    updateLevelDots();
+    showLevelBanner();
+    updateUI();
+  }
+
+  function updateLevelDots() {
+    for (var i = 1; i <= 5; i++) {
+      document.getElementById('dot' + i).classList.toggle('active', i <= level);
+    }
+  }
+
+  // ── UI ─────────────────────────────────────────────────────────────────
+  function updateUI() {
+    document.getElementById('scoreDisplay').textContent = score.toLocaleString();
+    document.getElementById('linesDisplay').textContent = lines;
+    document.getElementById('levelDisplay').textContent = level;
+    if (score > highScore) {
+      highScore = score;
+      document.getElementById('highScoreDisplay').textContent = highScore.toLocaleString();
+    }
+    var remaining = Math.max(0, LEVEL_DURATION - levelMs);
+    var secs = Math.ceil(remaining / 1000);
+    var pct = Math.min((levelMs / LEVEL_DURATION) * 100, 100);
+    var fill = document.getElementById('progressFill');
+    var lbl = document.getElementById('progressLabel');
+    fill.style.width = pct + '%';
+    if (secs <= 10) {
+      fill.style.background = 'linear-gradient(90deg,#ff4400,#ff00aa)';
+      lbl.classList.add('urgent');
+    } else {
+      fill.style.background = 'linear-gradient(90deg,var(--accent),var(--accent2))';
+      lbl.classList.remove('urgent');
+    }
+    lbl.textContent = secs + 's remaining';
+  }
+
+  function showLevelBanner() {
+    var wrapper = document.getElementById('canvasWrapper');
+    var old = wrapper.querySelector('.level-banner');
+    if (old) old.remove();
+    var b = document.createElement('div');
+    b.className = 'level-banner';
+    b.innerHTML =
+      '<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:0.3em;color:var(--dim)">LEVEL UP</div>' +
+      '<div style="font-family:\'Orbitron\',monospace;font-size:2.8rem;font-weight:900;letter-spacing:0.2em;' +
+        'background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;' +
+        'filter:drop-shadow(0 0 20px #00f5ffaa)">' + level + '</div>' +
+      '<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.58rem;color:var(--dim);margin-top:4px">SPEED INCREASED</div>';
+    wrapper.appendChild(b);
+    setTimeout(function() { if (b.parentNode) b.remove(); }, 1400);
+  }
+
+  // ── Drawing ────────────────────────────────────────────────────────────
+  function drawCell(context, cx, cy, type, size) {
+    size = size || CELL;
+    var color = COLORS[type];
+    var px = cx * size, py = cy * size, pad = 1;
+    context.save();
+    context.shadowColor = color;
+    context.shadowBlur = 10;
+    var g = context.createLinearGradient(px+pad, py+pad, px+size-pad, py+size-pad);
+    g.addColorStop(0, color + 'ee');
+    g.addColorStop(1, color + '88');
+    context.fillStyle = g;
+    context.fillRect(px+pad, py+pad, size-pad*2, size-pad*2);
+    context.shadowBlur = 0;
+    context.strokeStyle = color + 'cc';
+    context.lineWidth = 1;
+    context.strokeRect(px+pad+0.5, py+pad+0.5, size-pad*2-1, size-pad*2-1);
+    var sh = context.createLinearGradient(px+pad, py+pad, px+pad, py+size*0.4);
+    sh.addColorStop(0, 'rgba(255,255,255,0.22)');
+    sh.addColorStop(1, 'rgba(255,255,255,0)');
+    context.fillStyle = sh;
+    context.fillRect(px+pad, py+pad, size-pad*2, size*0.4);
+    context.restore();
+  }
+
+  function drawGhost() {
+    if (!current) return;
+    var gy = current.y;
+    while (!hits(current, 0, gy - current.y + 1)) gy++;
+    if (gy === current.y) return;
+    var color = COLORS[current.type];
+    current.matrix.forEach(function(row, r) {
+      row.forEach(function(cell, c) {
+        if (!cell) return;
+        var x = current.x + c, y = gy + r;
+        if (y >= 0 && y < ROWS) {
+          ctx.save();
+          ctx.globalAlpha = 0.15;
+          ctx.fillStyle = color;
+          ctx.fillRect(x*CELL+1, y*CELL+1, CELL-2, CELL-2);
+          ctx.strokeStyle = color + '88';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x*CELL+1.5, y*CELL+1.5, CELL-3, CELL-3);
+          ctx.restore();
+        }
+      });
+    });
+  }
+
+  function drawBoard() {
+    ctx.fillStyle = '#020208';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(0,245,255,0.04)';
+    ctx.lineWidth = 0.5;
+    for (var c = 0; c <= COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(c*CELL, 0); ctx.lineTo(c*CELL, canvas.height); ctx.stroke();
+    }
+    for (var r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r*CELL); ctx.lineTo(canvas.width, r*CELL); ctx.stroke();
+    }
+    board.forEach(function(row, r) {
+      row.forEach(function(cell, c) { if (cell) drawCell(ctx, c, r, cell); });
+    });
+  }
+
+  function drawCurrent() {
+    if (!current) return;
+    drawGhost();
+    current.matrix.forEach(function(row, r) {
+      row.forEach(function(cell, c) {
+        if (!cell) return;
+        var y = current.y + r;
+        if (y >= 0 && y < ROWS) drawCell(ctx, current.x + c, y, current.type);
+      });
+    });
+  }
+
+  function drawNext() {
+    nctx.fillStyle = '#020208';
+    nctx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+    if (!next) return;
+    var mat = next.matrix, cs = 18;
+    var ox = Math.floor((nextCanvas.width - mat[0].length * cs) / 2);
+    var oy = Math.floor((nextCanvas.height - mat.length * cs) / 2);
+    var color = COLORS[next.type];
+    mat.forEach(function(row, r) {
+      row.forEach(function(cell, c) {
+        if (!cell) return;
+        nctx.save();
+        nctx.shadowColor = color; nctx.shadowBlur = 8;
+        nctx.fillStyle = color + 'dd';
+        nctx.fillRect(ox+c*cs+1, oy+r*cs+1, cs-2, cs-2);
+        nctx.restore();
+      });
+    });
+  }
+
+  // ── Game loop ──────────────────────────────────────────────────────────
+  function loop(time) {
+    if (!gameActive || paused) return;
+    time = time || 0;
+    var delta = lastTime ? time - lastTime : 0;
+    lastTime = time;
+    dropCounter += delta;
+    if (dropCounter >= dropInterval) { softDrop(); dropCounter = 0; }
+    tickTimer(delta);
+    drawBoard(); drawCurrent(); drawNext();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function softDrop() {
+    if (!current) return;
+    if (!hits(current, 0, 1)) {
+      current.y++;
+    } else {
+      merge();
+      clearLines();
+      current = next;
+      next = randPiece();
+      if (hits(current, 0, 0)) { gameOver(); }
+    }
+  }
+
+  function hardDrop() {
+    if (!current) return;
+    var d = 0;
+    while (!hits(current, 0, 1)) { current.y++; d++; }
+    score += d * 2;
+    updateUI();
+    softDrop();
+    dropCounter = 0;
+  }
+
+  function moveH(dx) {
+    if (!current || hits(current, dx, 0)) return;
+    current.x += dx;
+  }
+
+  function rotate() {
+    if (!current) return;
+    var rot = rotateMat(current.matrix);
+    var kicks = [0, -1, 1, -2, 2];
+    for (var i = 0; i < kicks.length; i++) {
+      if (!hits(current, kicks[i], 0, rot)) {
+        current.matrix = rot;
+        current.x += kicks[i];
+        return;
+      }
+    }
+  }
+
+  // ── Game control ───────────────────────────────────────────────────────
+  function gameOver() {
+    gameActive = false;
+    cancelAnimationFrame(rafId);
+    drawBoard(); drawCurrent();
+    document.getElementById('gameOverScore').textContent = 'SCORE: ' + score.toLocaleString();
+    document.getElementById('gameOverOverlay').classList.remove('hidden');
+  }
+
+  window.startGame = function() {
+    cancelAnimationFrame(rafId);
+    board = makeBoard();
+    score = 0; lines = 0; level = 1; levelMs = 0;
+    dropInterval = LEVEL_SPEEDS[0];
+    gameActive = true; paused = false;
+    current = randPiece();
+    next = randPiece();
+    lastTime = 0; dropCounter = 0;
+    ['startOverlay','gameOverOverlay','pauseOverlay','congratsModal'].forEach(function(id) {
+      document.getElementById(id).classList.add('hidden');
+    });
+    document.getElementById('pauseBtn').textContent = '⏸ PAUSE';
+    updateLevelDots(); updateUI(); drawNext();
+    rafId = requestAnimationFrame(function(t) { lastTime = t; loop(t); });
+  };
+
+  window.togglePause = function() {
+    if (!gameActive) return;
+    paused = !paused;
+    document.getElementById('pauseOverlay').classList.toggle('hidden', !paused);
+    document.getElementById('pauseBtn').textContent = paused ? '▶ RESUME' : '⏸ PAUSE';
+    if (!paused) {
+      lastTime = 0; dropCounter = 0;
+      rafId = requestAnimationFrame(function(t) { lastTime = t; loop(t); });
+    }
+  };
+
+  // ── Congrats ───────────────────────────────────────────────────────────
+  function showCongrats() {
+    document.getElementById('congratsScore').textContent = score.toLocaleString();
+    document.getElementById('congratsModal').classList.remove('hidden');
+    spawnConfetti();
+  }
+
+  window.hideCongratsAndRestart = function() {
+    document.getElementById('congratsModal').classList.add('hidden');
+    startGame();
+  };
+
+  function spawnConfetti() {
+    var cont = document.getElementById('confettiContainer');
+    cont.innerHTML = '';
+    var colors = ['#00f5ff','#ff00aa','#aaff00','#ffee00','#ff8800','#4466ff'];
+    for (var i = 0; i < 60; i++) {
+      var el = document.createElement('div');
+      el.className = 'cp';
+      var s = 6 + Math.random() * 8;
+      el.style.cssText = 'left:' + (Math.random()*100) + '%;' +
+        'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
+        'animation-duration:' + (1.5+Math.random()*2) + 's;' +
+        'animation-delay:' + (Math.random()*1.5) + 's;' +
+        'width:' + s + 'px;height:' + s + 'px;' +
+        'border-radius:' + (Math.random()>0.5?'50%':'2px') + ';';
+      cont.appendChild(el);
+    }
+  }
+
+  // ── Keyboard ───────────────────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'p' || e.key === 'P') { togglePause(); return; }
+    if (!gameActive || paused) return;
+    switch (e.key) {
+      case 'ArrowLeft':  e.preventDefault(); moveH(-1); break;
+      case 'ArrowRight': e.preventDefault(); moveH(1); break;
+      case 'ArrowDown':  e.preventDefault(); softDrop(); dropCounter=0; score+=1; updateUI(); break;
+      case 'ArrowUp':    e.preventDefault(); rotate(); break;
+      case ' ':          e.preventDefault(); hardDrop(); break;
+    }
+  });
+
+  // ── Touch ──────────────────────────────────────────────────────────────
+  function bindTouch(id, fn, repeat) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var iv;
+    el.addEventListener('touchstart', function(e) {
+      e.preventDefault(); fn();
+      if (repeat) iv = setInterval(fn, 110);
+    }, {passive: false});
+    el.addEventListener('touchend', function() { clearInterval(iv); });
+  }
+
+  bindTouch('btn-left',  function() { if (gameActive && !paused) moveH(-1); }, true);
+  bindTouch('btn-right', function() { if (gameActive && !paused) moveH(1); }, true);
+  bindTouch('btn-down',  function() { if (gameActive && !paused) { softDrop(); dropCounter=0; score+=1; updateUI(); }}, true);
+  bindTouch('btn-up',    function() { if (gameActive && !paused) rotate(); }, false);
+  bindTouch('btn-drop',  function() { if (gameActive && !paused) hardDrop(); }, false);
+
+  // ── Initial render ─────────────────────────────────────────────────────
+  board = makeBoard();
+  next = randPiece();
+  drawBoard();
+  drawNext();
+
+})(); // end IIFE
+</script>
+</body>
+</html>
